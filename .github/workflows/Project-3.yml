@@ -1,0 +1,81 @@
+name: Project 3
+
+on:
+  push:
+    branches: [ "main" ]
+    paths:
+      - "Project 3/**"
+  pull_request:
+    branches: [ "main" ]
+    paths:
+      - "Project 3/**"
+
+jobs:
+  iac-scan:
+    name: IaC Scan
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v2
+
+      # Configure AWS Credentials so Terraform can access your AWS account.
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: eu-west-2
+
+      # Set up Terraform
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: 1.3.7
+
+      # Initialize Terraform in the "3" folder
+      - name: Terraform Init
+        run: terraform -chdir="./Project 3" init
+
+      # Install Checkov for IaC security scanning
+      - name: Install Checkov
+        run: pip install checkov
+
+      # Run Checkov scan on the Terraform configuration
+      - name: Run Checkov Scan
+        run: checkov -d "./Project 3"
+
+      # Run Terraform Plan as an additional check
+      - name: Terraform Plan
+        run: terraform -chdir="./Project 3" plan
+
+  iac-deploy:
+    name: IaC Deploy
+    runs-on: ubuntu-latest
+    needs: [iac-scan]  # Only run if the scan succeeds
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v2
+
+      # Configure AWS Credentials
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: eu-west-2
+
+      # Set up Terraform
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: 1.3.7
+
+      # Initialize Terraform
+      - name: Terraform Init
+        run: terraform -chdir="./Project 3" init
+
+      # Deploy the infrastructure with Terraform Apply
+      - name: Terraform Apply
+        run: terraform -chdir="./Project 3" apply -auto-approve
